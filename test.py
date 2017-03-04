@@ -22,8 +22,8 @@ if __name__ == '__main__':
 
         rr1.plot(c='b')
 
-        rr2.scatter(color='g', s=30)
         rr1.scatter(color='r', s=30)
+        rr2.scatter(color='g', s=30)
 
         plt.title(mf)
         plt.show()
