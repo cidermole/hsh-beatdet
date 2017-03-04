@@ -20,5 +20,10 @@ if __name__ == '__main__':
         rr1 = beatdet(data, beatdet_getrr_v1)
         rr2 = beatdet(data, beatdet_getrr_v2)
 
-        rr2.plot()
+        rr1.plot(c='b')
+
+        rr2.scatter(color='g', s=30)
+        rr1.scatter(color='r', s=30)
+
+        plt.title(mf)
         plt.show()
