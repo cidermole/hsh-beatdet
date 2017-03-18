@@ -69,16 +69,10 @@ def getrr_v2(data, fps=125.0, min_rr=250, beat_on_slope_height = beat_on_slope_h
     data[:, 1] = detrend(data[:, 1]) # linear detrend
 
     # get initial maxima and minima
-    #roughsignal = lowpass_fft(data[:, 1], fps, cf=1.8, tw=0.4)
-    #roughsignal = lowpass_fft(data[:, 1], fps, cf=2.5, tw=0.4)
-    #roughsignal = lowpass_fft(data[:, 1], fps, cf=2.0, tw=0.9)
-
-    #roughsignal = lowpass_fft(data[:, 1], fps, cf=1.9, tw=0.9)
-    roughsignal = lowpass_fft(data[:, 1], fps, cf=2.3, tw=0.9)
-
+    roughsignal = lowpass_fft(data[:, 1], fps, cf=1.9, tw=0.9)
     minindices = np.where(heartbeat_localmax(-1 * roughsignal))[0]
     maxindices = np.where(heartbeat_localmax(roughsignal))[0]
-    filtered = lowpass_fft(data[:, 1], fps, cf=13, tw=0.6)  # cf=3
+    filtered = highpass(lowpass_fft(data[:, 1], fps, cf=13, tw=0.6), fps, cf=0.4)
     #data[:, 1] = filtered
 
     # ensure we start with min
@@ -100,7 +94,9 @@ def getrr_v2(data, fps=125.0, min_rr=250, beat_on_slope_height = beat_on_slope_h
     minindices, maxindices = climb_to_extrema(data, minindices, maxindices, window)
 
     n = min(len(maxindices), len(minindices))
-    amplitude = np.mean(filtered[maxindices[:n]] - filtered[minindices[:n]])
+    amplitudes = list(sorted(filtered[maxindices[:n]] - filtered[minindices[:n]]))
+    throwaway = int(0.1*n)
+    amplitude = np.mean(amplitudes[throwaway:-throwaway]) # throw out bottom 10% and top 10% to obtain robust mean
 
     filtered = lowpass_fft(data[:, 1], fps, cf=3, tw=0.6) # more filtering for nicer visualisation
 
