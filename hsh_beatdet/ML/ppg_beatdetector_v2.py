@@ -69,7 +69,13 @@ def getrr_v2(data, fps=125.0, min_rr=250, beat_on_slope_height = beat_on_slope_h
     data[:, 1] = detrend(data[:, 1]) # linear detrend
 
     # get initial maxima and minima
-    roughsignal = lowpass_fft(data[:, 1], fps, cf=1.8, tw=0.4)
+    #roughsignal = lowpass_fft(data[:, 1], fps, cf=1.8, tw=0.4)
+    #roughsignal = lowpass_fft(data[:, 1], fps, cf=2.5, tw=0.4)
+    #roughsignal = lowpass_fft(data[:, 1], fps, cf=2.0, tw=0.9)
+
+    #roughsignal = lowpass_fft(data[:, 1], fps, cf=1.9, tw=0.9)
+    roughsignal = lowpass_fft(data[:, 1], fps, cf=2.3, tw=0.9)
+
     minindices = np.where(heartbeat_localmax(-1 * roughsignal))[0]
     maxindices = np.where(heartbeat_localmax(roughsignal))[0]
     filtered = lowpass_fft(data[:, 1], fps, cf=13, tw=0.6)  # cf=3
