@@ -146,7 +146,7 @@ def getrr_v2(data, fps=125.0, min_rr=250, beat_on_slope_height = beat_on_slope_h
         try:
             idx = maxindices[i] + np.argmin(np.abs(data[maxindices[i]:minindices[i + 1], 1] - ymid))
         except:
-            idx = maxindices[i] + int(fps*min_slope_width) - 1
+            idx = min(maxindices[i] + int(fps*min_slope_width) - 1, data.shape[0]-1)
         tbeat = None
         # linearly interpolate around midpoint
         try:
