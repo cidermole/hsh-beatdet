@@ -33,25 +33,35 @@ def make_peaks_alternate(data, minindices, maxindices):
     maxindices = maxindices[:len(minindices)]
     return minindices, maxindices
 
-def delete_small_ibis(tbeats, min_rr):
+def delete_small_ibis(tbeats, idxs, min_rr):
     todelete = True
     while todelete:
         ibi = np.diff(tbeats)
         delidx = 1 + np.where(ibi < min_rr)[0]
         if len(delidx) > 0:
             tbeats = np.delete(tbeats, delidx)
+            idxs = np.delete(idxs, delidx)
         else:
             todelete = False
-    return tbeats
+    return tbeats, idxs
 
 def climb_to_extrema(data, minindices, maxindices, window=10):
     maxindices = [max(i - window, 0) + np.argmax(data[:,1][max(i - window, 0):min(i + window, len(data) - 1)]) for i in maxindices]
     minindices = [max(i - window, 0) + np.argmin(data[:,1][max(i - window, 0):min(i + window, len(data) - 1)]) for i in minindices]
     return minindices, maxindices
 
-min_downslope_amplitude=0.05
+def mean_ibi_deviation(ibi):
+    dibis = (detrend(ibi) + np.mean(ibi))
+    throwaway = min(int(0.1 * len(dibis)), len(dibis)/2-2)
+    Mibi = np.median(list(sorted(dibis))[throwaway:-throwaway]) # median ibi, excl. extreme values
+    ibipercentage = 1.0 / Mibi * dibis # percentage deviation from median
+    return ibipercentage
+
+min_downslope_amplitude = 0.15
+roughsignal_cutoff = 2.1
+print("roughsignal_cutoff",roughsignal_cutoff)
 print("min_downslope_amplitude",min_downslope_amplitude)
-def getrr_v2(data, fps=125.0, min_rr=250, beat_on_slope_height = beat_on_slope_height, min_downslope_amplitude=min_downslope_amplitude, min_slope_width=0.14, convert_to_ms = False, plt=None):
+def getrr_v2(data, fps=125.0, min_rr=250, beat_on_slope_height = beat_on_slope_height, min_downslope_amplitude=min_downslope_amplitude, min_slope_width=0.14, convert_to_ms = False, plt=None, lower_ibi_tolerance = 0.55, upper_ibi_tolerance = 1.8):
     if data.shape[0] < fps:
         raise Warning("Warning: Tiny data shape", data.shape[0])
     data = np.copy(data)
@@ -65,11 +75,11 @@ def getrr_v2(data, fps=125.0, min_rr=250, beat_on_slope_height = beat_on_slope_h
             firstsecond) + "ms (set convert_to_ms flag to convert between seconds and ms)")
 
     #data[:, 1] = highpass(highpass(highpass(data[:, 1], fps), fps), fps) # highpass detrend
-    data[:, 1] = highpass(highpass(data[:, 1], fps, cf=0.1), fps, cf=0.1)
+    data[:, 1] = highpass(highpass(data[:, 1], fps, cf=0.12), fps, cf=0.12)
     data[:, 1] = detrend(data[:, 1]) # linear detrend
 
     # get initial maxima and minima
-    roughsignal = lowpass_fft(data[:, 1], fps, cf=2.1, tw=0.9)
+    roughsignal = lowpass_fft(data[:, 1], fps, cf=roughsignal_cutoff, tw=0.9)
     minindices = np.where(heartbeat_localmax(-1 * roughsignal))[0]
     maxindices = np.where(heartbeat_localmax(roughsignal))[0]
     filtered = highpass(lowpass_fft(data[:, 1], fps, cf=13, tw=0.6), fps, cf=0.4)
@@ -96,7 +106,7 @@ def getrr_v2(data, fps=125.0, min_rr=250, beat_on_slope_height = beat_on_slope_h
     n = min(len(maxindices), len(minindices))
     amplitudes = list(sorted(filtered[maxindices[:n]] - filtered[minindices[:n]]))
     throwaway = int(0.1*n)
-    amplitude = np.mean(amplitudes[throwaway:-throwaway]) # throw out bottom 10% and top 10% to obtain robust mean
+    amplitude = np.median(amplitudes[throwaway:-throwaway]) # throw out bottom 10% and top 10% to obtain robust median
 
     filtered = lowpass_fft(data[:, 1], fps, cf=3, tw=0.6) # more filtering for nicer visualisation
 
@@ -175,10 +185,62 @@ def getrr_v2(data, fps=125.0, min_rr=250, beat_on_slope_height = beat_on_slope_h
 
 
     # delete too small ibi beats
-    tbeats = delete_small_ibis(tbeats, min_rr)
+    tbeats, idxs = delete_small_ibis(tbeats, idxs, min_rr)
     ibi = np.diff(tbeats)
+    
+    outlier = np.where(ibi > 2500)[0] # horribly large outliers mess up the code below - get rid of them
+    if len(outlier) > 0:
+        ibi = np.delete(ibi, outlier)
+        idxs = np.delete(idxs, outlier+1)
+
+    # delete too small ibi differences
+    for i in range(2):
+        ibipercentage = mean_ibi_deviation(ibi)
+        smallidx = 1 + np.where(ibipercentage < lower_ibi_tolerance)[0] # about half the median ibi (probably double peak or artefact)
+        if len(smallidx) > 0:
+            tbeats = np.delete(tbeats, smallidx)
+            idxs = np.delete(idxs, smallidx)
+            ibi = np.diff(tbeats)
+        else:
+            break
+
+    # delete too large ibi differences, long as they exist
+    for i in range(2):
+        ibipercentage = mean_ibi_deviation(ibi)
+        largeidx = np.where(ibipercentage > upper_ibi_tolerance)[0] # about twice the median ibi (probably skipped beat - omit ibi)
+        if len(largeidx) > 0:
+            ibi = np.delete(ibi, largeidx)
+        else:
+            break
 
     return ibi, filtered, idxs
+
+def fix_ibi_outliers(ibi, min_rr = 0.35, lower_ibi_tolerance = 0.55, upper_ibi_tolerance = 1.8):
+    assert np.mean(ibi) > 0.4 and np.mean(ibi) < 1.5
+
+    # delete too small ibi beats
+    ibi = np.array(ibi)
+    ibi = ibi[np.where(ibi>min_rr)[0]]
+
+    # delete too small ibi differences
+    while True:
+        ibipercentage = mean_ibi_deviation(ibi)
+        smallidx = np.where(ibipercentage < lower_ibi_tolerance)[0] # about half the median ibi (probably double peak or artefact)
+        if len(smallidx) > 0:
+            ibi = np.delete(ibi, smallidx)
+        else:
+            break
+
+    # delete too large ibi differences, long as they exist
+    while True:
+        ibipercentage = mean_ibi_deviation(ibi)
+        largeidx = np.where(ibipercentage > upper_ibi_tolerance)[0] # about twice the median ibi (probably skipped beat - omit ibi)
+        if len(largeidx) > 0:
+            ibi = np.delete(ibi, largeidx)
+        else:
+            break
+
+    return ibi
 
 def heartbeat_localmax(d):
     """Calculate the local maxima of a heartbeat signal vector (based on script from https://github.com/compmem/ptsa/blob/master/ptsa/emd.py)."""
