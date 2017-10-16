@@ -4,6 +4,8 @@ from ML.ppg_beatdetector_v2 import getrr_v2
 from hsh_signal.heartseries import HeartSeries
 from hsh_signal.signal import highpass
 
+from zong import ZongDetector
+
 
 def beatdet_getrr_v2(data, get_tbeats=False):
     if get_tbeats:
