@@ -43,6 +43,7 @@ class ZongDetector(Detector):
     MWIN_LEN = 5.0  #: length of median window, in sec
     MWIN_PERC = 80  #: amplitude percentile to use, [0-100]
     REFR_LEN = 0.2  #: length of refractory period, in sec
+    LWIN_LEN = 0.3  #: length of left window to look for foot before SSF peak, in sec
     RUNN_THR = 0.5  #: SSF amplitude threshold, relative to smoothed window percentile
     RUNN_THR_DTR = 0.2  #: amplitude threshold for `detr` outlier filtering
 
@@ -119,7 +120,7 @@ class ZongDetector(Detector):
         refr_size = self.refr_win
 
         isgg = np.where(localmax(ssf) & (np.nan_to_num(ssf) > self.smooth_wms * rth))[0]
-        isgg = seek_left_localmax(self.detr, isgg, self.fps)
+        isgg = seek_left_localmax(self.detr, isgg, self.fps, win_len=ZongDetector.LWIN_LEN)
 
         iskipped = []
 
