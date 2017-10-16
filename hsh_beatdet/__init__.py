@@ -5,9 +5,23 @@ from hsh_signal.heartseries import HeartSeries
 from hsh_signal.signal import highpass
 
 
-def beatdet_getrr_v2(data):
-    ibis, filtered, idx = getrr_v2(data, fps=30, convert_to_ms=True)
-    return ibis, filtered, idx
+def beatdet_getrr_v2(data, get_tbeats=False):
+    if get_tbeats:
+        ibi, filtered, idxs, tbeats = getrr_v2(data, fps=30, convert_to_ms=True, get_tbeats=True)
+        return ibi, filtered, idxs, tbeats
+    else:
+        ibi, filtered, idxs = getrr_v2(data, fps=30, convert_to_ms=True, get_tbeats=False)
+        return ibi, filtered, idxs
+
+
+def beatdet_getrr_v2_fracidx(data):
+    fps=30.0
+    ibi, filtered, idxs_whole, tbeats = getrr_v2(data, fps=fps, convert_to_ms=True, get_tbeats=True)
+    t0 = data[0,0]
+    trel = np.array(tbeats)/1e3 - t0
+    idxs = trel * fps
+    idxs = idxs[np.where(idxs < data.shape[0])[0]]
+    return ibi, filtered, idxs
 
 
 def beatdet_getrr_v1(data):

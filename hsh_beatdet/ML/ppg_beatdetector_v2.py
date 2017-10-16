@@ -61,7 +61,7 @@ min_downslope_amplitude = 0.15
 roughsignal_cutoff = 2.1
 print("roughsignal_cutoff",roughsignal_cutoff)
 print("min_downslope_amplitude",min_downslope_amplitude)
-def getrr_v2(data, fps=125.0, min_rr=250, beat_on_slope_height = beat_on_slope_height, min_downslope_amplitude=min_downslope_amplitude, min_slope_width=0.14, convert_to_ms = False, plt=None, lower_ibi_tolerance = 0.55, upper_ibi_tolerance = 1.8):
+def getrr_v2(data, fps=125.0, min_rr=250, beat_on_slope_height = beat_on_slope_height, min_downslope_amplitude=min_downslope_amplitude, min_slope_width=0.14, convert_to_ms = False, plt=None, lower_ibi_tolerance = 0.55, upper_ibi_tolerance = 1.8, get_tbeats = False):
     if data.shape[0] < fps:
         raise Warning("Warning: Tiny data shape", data.shape[0])
     data = np.copy(data)
@@ -213,7 +213,10 @@ def getrr_v2(data, fps=125.0, min_rr=250, beat_on_slope_height = beat_on_slope_h
         else:
             break
 
-    return ibi, filtered, idxs
+    if get_tbeats:
+        return ibi, filtered, idxs, tbeats
+    else:
+        return ibi, filtered, idxs
 
 def fix_ibi_outliers(ibi, min_rr = 0.35, lower_ibi_tolerance = 0.55, upper_ibi_tolerance = 1.8):
     assert np.mean(ibi) > 0.4 and np.mean(ibi) < 1.5
