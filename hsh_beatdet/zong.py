@@ -75,8 +75,7 @@ class ZongDetector(Detector):
         base = lowpass(pleth, fps=fps, cf=0.4, tw=0.2)
         detr_unfilt = pleth - base
 
-        # TODO: try center freq hypotheses from FFT peaks.
-        detr = cwt_lowpass(detr_unfilt, fps=fps, cf=1.0 / 1.15)
+        detr = cwt_lowpass(detr_unfilt, fps=fps, cf=3.0)
 
         self.detr_unfilt = detr_unfilt
         self.base, self.detr = base, detr
