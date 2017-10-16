@@ -144,15 +144,11 @@ class ZongDetector(Detector):
             isgg_refr.append(i)
 
         self.iskipped = np.array(iskipped)
-        self.ibeats = np.array(isgg_refr)
+        ibeats_1 = np.array(isgg_refr)
 
         # to do: find key points (foot, edge center, peak)
         # to do: fractional beat time
 
-        # use wavelets to denoise feet?
-
-    def compute_ppgf(self):
-        fps, x = self.fps, self.detr
 
         #
         # Remove outliers (local extrema) of `detr` - avoid overfitting `smooth_feet` onto these small peaks,
@@ -162,15 +158,18 @@ class ZongDetector(Detector):
         rth = ZongDetector.RUNN_THR_DTR
 
         # compute_wms_ext(win_size, perc, ipeaks, x, fps)
-        smooth_wms_detr_feet = compute_wms_ext(self.m_win, ZongDetector.MWIN_PERC, self.ibeats, self.detr, self.fps)
+        smooth_wms_detr_feet = compute_wms_ext(self.m_win, ZongDetector.MWIN_PERC, ibeats_1, self.detr, self.fps)
         self.smooth_wms_detr_feet = smooth_wms_detr_feet
 
         db = np.zeros(len(self.detr), dtype=bool)
-        db[self.ibeats] = 1
+        db[ibeats_1] = 1
         ifeet = np.where(db & (np.nan_to_num(self.detr) > smooth_wms_detr_feet * rth))[0]
         self.ifeet = ifeet
+        self.ibeats = ifeet
 
-        ###
+    def compute_ppgf(self):
+        fps, x = self.fps, self.detr
+        ifeet = self.ifeet
 
         if len(ifeet):
             smooth_feet = even_smooth(ifeet, x[ifeet], len(x), fps=fps, cf=2.0, tw=1.0)
