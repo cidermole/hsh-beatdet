@@ -5,7 +5,7 @@ from hsh_signal.heartseries import Series, HeartSeries
 from detector import Detector
 
 
-def compute_wms_ext(win_size, perc, ipeaks, x, fps):
+def compute_wms_ext(win_size, perc, ipeaks, x, fps, get_wms=False):
     """compute smoothed window medians."""
     #win_size = self.m_win
     #perc = ZongDetector.MWIN_PERC
@@ -30,7 +30,10 @@ def compute_wms_ext(win_size, perc, ipeaks, x, fps):
     #self.wms = wms
 
     smooth_wms = even_smooth(ipeaks, wms, len(ssf), fps=fps, cf=0.3, tw=0.1)
-    return smooth_wms
+    if get_wms:
+        return wms, smooth_wms
+    else:
+        return smooth_wms
 
 
 class ZongDetector(Detector):
@@ -108,7 +111,7 @@ class ZongDetector(Detector):
 
     def compute_wms(self):
         """compute smoothed window medians."""
-        self.smooth_wms = compute_wms_ext(self.m_win, ZongDetector.MWIN_PERC, self.ipeaks, self.ssf, self.fps)
+        self.wms, self.smooth_wms = compute_wms_ext(self.m_win, ZongDetector.MWIN_PERC, self.ipeaks, self.ssf, self.fps, get_wms=True)
 
     def compute_good(self):
         """compute good beats (apply SSF threshold, refractory period)."""
@@ -117,6 +120,7 @@ class ZongDetector(Detector):
         refr_size = self.refr_win
 
         isgg = np.where(localmax(ssf) & (np.nan_to_num(ssf) > self.smooth_wms * rth))[0]
+        isgg = seek_left_localmax(self.detr, isgg, self.fps)
 
         iskipped = []
 
