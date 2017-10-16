@@ -5,6 +5,34 @@ from hsh_signal.heartseries import Series, HeartSeries
 from detector import Detector
 
 
+def compute_wms_ext(win_size, perc, ipeaks, x, fps):
+    """compute smoothed window medians."""
+    #win_size = self.m_win
+    #perc = ZongDetector.MWIN_PERC
+    #ipeaks = self.ipeaks
+    ssf = x
+    wms = []
+    for ii, i in enumerate(ipeaks):
+        si, ei = max(i-win_size//2, 0), min(i+win_size//2+1, len(ssf)-1)
+        win_peaks = ipeaks[np.where((ipeaks >= si) & (ipeaks < ei))[0]]
+        if len(win_peaks) == 0:
+            # absolutely no beats in range? (would be strange.)
+            if len(wms) > 0:
+                # use previous threshold
+                wm = wms[-1]
+            else:
+                # use global median
+                wm = np.percentile(ssf[ipeaks], perc)
+        else:
+            wm = np.percentile(ssf[win_peaks], perc)
+        wms.append(wm)
+    wms = np.array(wms)
+    #self.wms = wms
+
+    smooth_wms = even_smooth(ipeaks, wms, len(ssf), fps=fps, cf=0.3, tw=0.1)
+    return smooth_wms
+
+
 class ZongDetector(Detector):
     """after Zong et al, 2003: An open-source algorithm to detect onset of arterial blood pressure pulses."""
 
@@ -13,6 +41,7 @@ class ZongDetector(Detector):
     MWIN_PERC = 80  #: amplitude percentile to use, [0-100]
     REFR_LEN = 0.2  #: length of refractory period, in sec
     RUNN_THR = 0.5  #: SSF amplitude threshold, relative to smoothed window percentile
+    RUNN_THR_DTR = 0.2  #: amplitude threshold for `detr` outlier filtering
 
     def __init__(self):
         super(ZongDetector, self).__init__()
@@ -79,29 +108,7 @@ class ZongDetector(Detector):
 
     def compute_wms(self):
         """compute smoothed window medians."""
-        win_size = self.m_win
-        perc = ZongDetector.MWIN_PERC
-        ipeaks = self.ipeaks
-        ssf = self.ssf
-        wms = []
-        for ii, i in enumerate(ipeaks):
-            si, ei = max(i - win_size // 2, 0), min(i + win_size // 2 + 1, len(ssf) - 1)
-            win_peaks = ipeaks[np.where((ipeaks >= si) & (ipeaks < ei))[0]]
-            if len(win_peaks) == 0:
-                # absolutely no beats in range? (would be strange.)
-                if len(wms) > 0:
-                    # use previous threshold
-                    wm = wms[-1]
-                else:
-                    # use global median
-                    wm = np.percentile(ssf[ipeaks], perc)
-            else:
-                wm = np.percentile(ssf[win_peaks], perc)
-            wms.append(wm)
-        wms = np.array(wms)
-        self.wms = wms
-
-        self.smooth_wms = even_smooth(ipeaks, wms, len(ssf), fps=self.fps, cf=0.3, tw=0.1)
+        self.smooth_wms = compute_wms_ext(self.m_win, ZongDetector.MWIN_PERC, self.ipeaks, self.ssf, self.fps)
 
     def compute_good(self):
         """compute good beats (apply SSF threshold, refractory period)."""
@@ -146,8 +153,24 @@ class ZongDetector(Detector):
 
     def compute_ppgf(self):
         fps, x = self.fps, self.detr
-        ifeet = seek_left_localmax(x, self.ibeats, fps)
+
+        #
+        # Remove outliers (local extrema) of `detr` - avoid overfitting `smooth_feet` onto these small peaks,
+        # into individual beats.
+        #
+
+        rth = ZongDetector.RUNN_THR_DTR
+
+        # compute_wms_ext(win_size, perc, ipeaks, x, fps)
+        smooth_wms_detr_feet = compute_wms_ext(self.m_win, ZongDetector.MWIN_PERC, self.ibeats, self.detr, self.fps)
+        self.smooth_wms_detr_feet = smooth_wms_detr_feet
+
+        db = np.zeros(len(self.detr), dtype=bool)
+        db[self.ibeats] = 1
+        ifeet = np.where(db & (np.nan_to_num(self.detr) > smooth_wms_detr_feet * rth))[0]
         self.ifeet = ifeet
+
+        ###
 
         if len(ifeet):
             smooth_feet = even_smooth(ifeet, x[ifeet], len(x), fps=fps, cf=2.0, tw=1.0)
