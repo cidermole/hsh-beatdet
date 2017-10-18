@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from hsh_signal.signal import localmax, lowpass, cwt_lowpass, even_smooth, seek_left_localmax
+from hsh_signal.signal import localmax, lowpass, cwt_lowpass, even_smooth, seek_left_localmax, localmax_interp
 from hsh_signal.heartseries import Series, HeartSeries
 from detector import Detector
 
@@ -230,5 +230,5 @@ class ZongDetector(Detector):
 
     def get_result(self):
         fps, x = self.ppgf.fps, self.ppgf.x
-        ibeats = self.ibeats
+        ibeats = localmax_interp(self.ppgf.x, self.ibeats, hwin_size=int(0.1 * self.ppgf.fps))
         return HeartSeries(x, ibeats, fps, self.ppgr.lpad)
