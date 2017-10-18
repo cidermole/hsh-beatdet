@@ -45,7 +45,9 @@ class ZongDetector(Detector):
     REFR_LEN = 0.2  #: length of refractory period, in sec
     LWIN_LEN = 0.3  #: length of left window to look for foot before SSF peak, in sec
     RUNN_THR = 0.5  #: SSF amplitude threshold, relative to smoothed window percentile
-    RUNN_THR_DTR = 0.2  #: amplitude threshold for `detr` outlier filtering
+    RUNN_THR_DTR = 0.2  #: amplitude threshold for `detr` outlier filtering, relative to smoothed window percentile
+    #CWT_CUTOFF_FREQ = 3.0  #: cutoff frequency for CWT smoothing for low blood pressure before detection
+    CWT_CUTOFF_FREQ = 5.0
 
     def __init__(self):
         super(ZongDetector, self).__init__()
@@ -76,7 +78,7 @@ class ZongDetector(Detector):
         base = lowpass(pleth, fps=fps, cf=0.4, tw=0.2)
         detr_unfilt = pleth - base
 
-        detr = cwt_lowpass(detr_unfilt, fps=fps, cf=3.0)
+        detr = cwt_lowpass(detr_unfilt, fps=fps, cf=ZongDetector.CWT_CUTOFF_FREQ)
 
         self.detr_unfilt = detr_unfilt
         self.base, self.detr = base, detr
@@ -170,6 +172,7 @@ class ZongDetector(Detector):
         ifeet = np.where(db & (np.nan_to_num(self.detr) > smooth_wms_detr_feet * rth))[0]
         self.ifeet = ifeet
         self.ibeats = ifeet
+        # TODO: interpolate the exact loci of the feet (fit quadratic polynomial)
 
     def compute_ppgf(self):
         fps, x = self.fps, self.detr
@@ -190,7 +193,7 @@ class ZongDetector(Detector):
         # self.ppgrf = Series(ppgf_x + self.removed_noise, fps=fps)
 
     def plot(self):
-        t, ppgf = self.ppgf.t, self.ppgf.x
+        t, ppgf = self.ppgf.t, np.array(self.ppgf.x) - (np.percentile(self.ppgf.x, 90) - np.percentile(self.ppgf.x, 50)) * 0.1
         ssf = self.ssf
         ipeaks = self.ipeaks
         iskipped = self.iskipped
