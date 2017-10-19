@@ -230,5 +230,9 @@ class ZongDetector(Detector):
 
     def get_result(self):
         fps, x = self.ppgf.fps, self.ppgf.x
+        assert np.all(self.ibeats < len(self.ppgf.x))
+        assert np.all(self.ibeats >= 0)
         ibeats = localmax_interp(self.ppgf.x, self.ibeats, hwin_size=int(0.1 * self.ppgf.fps))
+        assert np.all(ibeats < len(self.ppgf.x))
+        assert np.all(ibeats >= 0)
         return HeartSeries(x, ibeats, fps, self.ppgr.lpad)
