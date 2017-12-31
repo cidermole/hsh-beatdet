@@ -3,7 +3,7 @@ from distutils.core import setup
 setup(
     name='hsh-beatdet',
     version='0.0.1',
-    packages=['hsh_beatdet']
+    packages=['hsh_beatdet', 'hsh_beatdet.ML']
     #ext_modules=extensions
 )
 
