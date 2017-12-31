@@ -51,7 +51,7 @@ def climb_to_extrema(data, minindices, maxindices, window=10):
     return minindices, maxindices
 
 def mean_ibi_deviation(ibi):
-    dibis = (detrend(ibi) + np.mean(ibi))
+    dibis = (detrend(ibi) + np.mean(ibi)) if len(ibi) > 0 else ibi
     throwaway = min(int(0.1 * len(dibis)), len(dibis)/2-2)
     Mibi = np.median(list(sorted(dibis))[throwaway:-throwaway]) # median ibi, excl. extreme values
     ibipercentage = 1.0 / Mibi * dibis # percentage deviation from median
